@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KOWOO 인보이스 QR 라벨 발행</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<div class="topbar">
+  <span class="mark">KOWOO</span>
+  <div>
+    <div class="t">인보이스 QR 라벨 발행</div>
+    <div class="s">Invoice QR Label · packing list</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn on-dark" id="btnSample">샘플 값으로 보기</button>
+  <button class="btn primary" id="btnPrint" disabled>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+    인쇄
+  </button>
+</div>
+
+<div class="layout">
+
+  <!-- ================= 좌측 설정 패널 ================= -->
+  <aside class="panel">
+
+    <div class="pblock">
+      <h2>1. 인보이스 파일</h2>
+      <div class="drop" id="drop">
+        <div class="ic">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        </div>
+        <div class="t1" id="dropT1">엑셀 파일을 올려놓으세요</div>
+        <div class="t2" id="dropT2">클릭해서 선택 · .xlsx / .xlsm</div>
+      </div>
+      <div class="filerow" id="fileRow" hidden>
+        <span class="name" id="fileName"></span>
+        <button class="btn sm" id="btnClear" style="margin-left:auto">지우기</button>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls" hidden>
+    </div>
+
+    <div class="pblock">
+      <h2 class="acc">2. 인보이스 정보</h2>
+      <div class="field">
+        <label>인보이스 번호 (No. of invoice)</label>
+        <input id="f_inv" class="mono" placeholder="KW260716-RM">
+      </div>
+      <div class="field">
+        <label>발행일 (Date of invoice)</label>
+        <input id="f_date" class="mono" placeholder="Jul-16-2026">
+      </div>
+      <div class="note" id="srcNote">파일을 올리면 <b>(8) No. &amp; Date of invoice</b> 항목을 자동으로 읽습니다. 값은 직접 수정할 수 있습니다.</div>
+    </div>
+
+    <div class="pblock">
+      <h2>3. 인쇄 수량</h2>
+      <div class="field">
+        <label>총 매수 (QR 번호의 분모)</label>
+        <input id="f_total" type="number" min="1" max="999" value="20" class="mono">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>시작 번호</label>
+          <input id="f_from" type="number" min="1" max="999" value="1" class="mono">
+        </div>
+        <div class="field">
+          <label>인쇄 매수</label>
+          <input id="f_count" type="number" min="1" max="999" value="20" class="mono">
+        </div>
+      </div>
+      <div class="field">
+        <div class="hint">전체를 처음 뽑을 때는 시작 1 · 총 매수와 동일하게 두세요. 한 장만 다시 뽑을 때는 시작 번호를 그 번호로, 인쇄 매수를 1로 하면 <b>원래와 같은 QR</b>이 나옵니다.</div>
+      </div>
+    </div>
+
+    <div class="pblock">
+      <h2>4. 라벨 배치</h2>
+      <div class="field">
+        <label>한 줄에 놓을 개수</label>
+        <select id="f_cols">
+          <option value="1" selected>1개 (스케치 크기 · QR 34mm · A4에 5장)</option>
+          <option value="2">2개 (작게 · QR 22mm · A4에 16장)</option>
+        </select>
+      </div>
+      <label class="chk">
+        <input type="checkbox" id="f_showText">
+        <span>라벨에 QR 내용 글자도 함께 표시</span>
+      </label>
+    </div>
+
+    <div class="pblock">
+      <h2>QR 내용 (3번 라벨 기준)</h2>
+      <div class="payload" id="payloadPreview">파일을 올리거나 정보를 입력하세요</div>
+      <div class="note" style="margin-top:9px">
+        각 라벨마다 <b>일련번호</b>가 들어가 QR 내용이 전부 달라집니다. 같은 인보이스를 다시 뽑아도 같은 번호는 같은 QR이 나오므로, 손상된 라벨 한 장만 교체할 때 중복으로 잡히지 않습니다.
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ================= 우측 미리보기 ================= -->
+  <main class="preview">
+    <div class="preview-head">
+      <div class="cnt" id="cnt">—</div>
+      <div class="spacer"></div>
+      <button class="btn sm" id="btnPrint2" disabled>인쇄 미리보기</button>
+    </div>
+    <div id="previewRoot"></div>
+  </main>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/xlsx.full.min.js"></script>
+<script src="assets/js/qrcode.js"></script>
+<script src="assets/js/parse.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

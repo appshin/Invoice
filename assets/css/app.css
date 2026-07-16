@@ -1,0 +1,240 @@
+/* =========================================================================
+ * KOWOO 인보이스 QR 라벨 발행
+ * 디자인: 선적/세관 서식(shipping label). 원본 인보이스의 형광 노랑 하이라이트를
+ *         액센트로 그대로 가져와 라벨 배너에 사용.
+ * ========================================================================= */
+
+:root {
+  --ink:      #10151b;
+  --ink-2:    #39434f;
+  --muted:    #6d7883;
+  --bg:       #d9dee4;
+  --panel:    #ffffff;
+  --panel-2:  #f4f6f8;
+  --line:     #d3dae1;
+  --rule:     #101418;          /* 라벨 괘선: 진한 검정 */
+  --yellow:   #ffef00;          /* 원본 인보이스 하이라이트 */
+  --yellow-d: #d6c800;
+  --blue:     #14509b;
+  --red:      #c3352b;
+
+  --sans: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont,
+          "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Consolas", monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+/* ---- 상단 바 ---- */
+.topbar {
+  background: var(--ink); color: #fff; padding: 12px 20px;
+  display: flex; align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar .mark {
+  font-family: var(--mono); font-weight: 700; letter-spacing: .12em; font-size: 13px;
+  border: 1.5px solid rgba(255,255,255,.5); padding: 3px 8px; border-radius: 5px;
+}
+.topbar .t { font-size: 14px; font-weight: 600; }
+.topbar .s { font-size: 12px; color: rgba(255,255,255,.6); font-family: var(--mono); }
+.topbar .spacer { flex: 1; }
+
+.btn {
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+  padding: 9px 15px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; font-family: var(--sans);
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.btn:hover { background: var(--panel-2); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: #0e3d78; }
+.btn.on-dark { background: transparent; border-color: rgba(255,255,255,.35); color: #fff; }
+.btn.on-dark:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.btn.sm { padding: 5px 10px; font-size: 12px; }
+
+/* ---- 레이아웃 ---- */
+.layout { display: grid; grid-template-columns: 340px 1fr; gap: 0; min-height: calc(100vh - 46px); }
+
+/* ---- 좌측 패널 ---- */
+.panel { background: var(--panel); border-right: 1px solid var(--line); padding: 18px; overflow-y: auto; }
+.panel h2 {
+  font-size: 12px; font-weight: 700; margin: 0 0 10px; color: var(--ink-2);
+  display: flex; align-items: center; gap: 8px;
+}
+.panel h2::before { content: ""; width: 3px; height: 12px; background: var(--ink); border-radius: 2px; }
+.panel h2.acc::before { background: var(--yellow-d); }
+.pblock { margin-bottom: 22px; }
+
+/* 드롭존 */
+.drop {
+  border: 2px dashed var(--line); border-radius: 10px; padding: 22px 14px;
+  text-align: center; cursor: pointer; background: var(--panel-2);
+}
+.drop:hover, .drop.over { border-color: var(--blue); background: #eef4fc; }
+.drop .ic { color: var(--muted); margin-bottom: 8px; }
+.drop .t1 { font-size: 13px; font-weight: 600; }
+.drop .t2 { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.drop.loaded { border-style: solid; border-color: #b9d4b9; background: #f1f8f1; }
+.drop.loaded .t1 { color: #1d6b32; }
+
+.filerow {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 12px; color: var(--muted);
+}
+.filerow .name { font-family: var(--mono); color: var(--ink-2); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+
+/* 필드 */
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+.field label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.field input, .field select {
+  border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px;
+  font-size: 13px; font-family: var(--sans); color: var(--ink); background: #fff; outline: 0;
+}
+.field input.mono { font-family: var(--mono); font-weight: 600; }
+.field input:focus, .field select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #e4eefb; }
+.field .hint { font-size: 11px; color: var(--muted); line-height: 1.45; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.chk { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 9px; }
+.chk input { accent-color: var(--blue); }
+
+/* QR 내용 미리보기 */
+.payload {
+  background: var(--ink); color: #d8f0c8; font-family: var(--mono); font-size: 11px;
+  padding: 9px 10px; border-radius: 7px; word-break: break-all; line-height: 1.6;
+}
+.payload b { color: var(--yellow); font-weight: 700; }
+
+.note {
+  font-size: 11.5px; color: var(--muted); line-height: 1.5;
+  background: var(--panel-2); border-left: 2px solid var(--line);
+  padding: 9px 11px; border-radius: 0 6px 6px 0;
+}
+.warn {
+  font-size: 12px; color: #8a4b12; background: #fdf3e4; border-left: 2px solid #e0a25a;
+  padding: 9px 11px; border-radius: 0 6px 6px 0; line-height: 1.5;
+}
+
+/* ---- 우측 미리보기 ---- */
+.preview { padding: 20px; overflow-y: auto; }
+.preview-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+}
+.preview-head .cnt { font-size: 12.5px; color: var(--ink-2); }
+.preview-head .cnt b { font-family: var(--mono); }
+.preview-head .spacer { flex: 1; }
+
+.sheet {
+  background: #fff; padding: 10mm; margin: 0 auto; max-width: 210mm;
+  box-shadow: 0 6px 26px rgba(16,21,27,.16);
+}
+.labels { display: grid; gap: 4mm; }
+.labels.c1 { grid-template-columns: 1fr; }
+.labels.c2 { grid-template-columns: repeat(2, 1fr); }
+
+/* ---- 라벨: 좌 QR / 우 인보이스번호·날짜 (육안 식별용) ---- */
+.label {
+  border: 2px solid var(--rule); background: #fff;
+  display: flex; align-items: center; gap: var(--lb-gap);
+  padding: var(--lb-pad);
+  break-inside: avoid; page-break-inside: avoid;
+}
+/* QR: 왼쪽 */
+.label .qr { flex: none; border: 1px solid var(--rule); line-height: 0; }
+.label .qr svg {
+  display: block; shape-rendering: crispEdges;
+  width: var(--qr-size); height: var(--qr-size);
+}
+/* 필드: 오른쪽 */
+.label .fields { flex: 1; min-width: 0; }
+.label .f + .f { margin-top: var(--lb-fgap); }
+.label .f .k {
+  font-size: var(--lb-key); font-weight: 500; color: var(--ink);
+  letter-spacing: .01em; margin-bottom: 2px; line-height: 1.2;
+}
+/* 원본 인보이스와 동일하게 값에 노란 하이라이트 */
+.label .f .v {
+  background: var(--yellow); border: 1px solid var(--rule);
+  font-family: var(--mono); font-weight: 700; color: var(--ink);
+  font-size: var(--lb-val); line-height: 1.3;
+  padding: var(--lb-vpad); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.label .txt {
+  font-family: var(--mono); font-size: 7px; color: var(--muted);
+  word-break: break-all; line-height: 1.35; margin-top: 4px;
+}
+/* 일련번호 스탬프: 라벨끼리 한눈에 구분 */
+.label .stamp {
+  flex: none; text-align: center; border-left: 1px solid var(--line);
+  padding-left: var(--lb-gap); align-self: stretch;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.label .stamp .cap {
+  font-size: var(--lb-key); color: var(--muted); letter-spacing: .12em; margin-bottom: 1px;
+}
+.label .stamp .num {
+  font-family: var(--mono); font-weight: 700; line-height: 1;
+  font-size: var(--lb-stamp); letter-spacing: -.03em; color: var(--ink);
+}
+.label .stamp .num .of {
+  display: block; font-size: var(--lb-stamp-of); color: var(--muted);
+  font-weight: 500; letter-spacing: 0; margin-top: 2px;
+}
+
+/* 크기 프리셋 — 한 줄 1개(스케치 크기) / 2개 */
+.labels.c1 {
+  --qr-size: 34mm; --lb-pad: 5mm; --lb-gap: 5mm; --lb-fgap: 3mm;
+  --lb-key: 11px; --lb-val: 17px; --lb-vpad: 4px 8px;
+  --lb-stamp: 30px; --lb-stamp-of: 12px;
+}
+.labels.c2 {
+  --qr-size: 22mm; --lb-pad: 3mm; --lb-gap: 3mm; --lb-fgap: 2mm;
+  --lb-key: 8px; --lb-val: 12px; --lb-vpad: 2px 5px;
+  --lb-stamp: 20px; --lb-stamp-of: 9px;
+}
+
+/* 빈 상태 */
+.empty {
+  background: #fff; border: 1px dashed var(--line); border-radius: 10px;
+  padding: 70px 20px; text-align: center; color: var(--muted); max-width: 210mm; margin: 0 auto;
+}
+.empty h3 { color: var(--ink-2); margin: 0 0 6px; font-size: 15px; }
+.empty .big { font-size: 34px; margin-bottom: 10px; opacity: .3; }
+
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 9px;
+  font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .panel { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ============================ 인쇄 ============================ */
+@page { size: A4 portrait; margin: 8mm; }
+@media print {
+  html, body { background: #fff; }
+  .topbar, .panel, .preview-head, .toast { display: none !important; }
+  .layout { display: block; }
+  .preview { padding: 0; overflow: visible; }
+  .sheet { box-shadow: none; padding: 0; max-width: none; }
+  .labels { gap: 3mm; }
+  /* 노란 하이라이트는 배경색 → 인쇄 옵션과 무관하게 나오도록 강제.
+     혹시 꺼지더라도 검은 글자/괘선은 그대로라 육안 식별에는 지장 없음 */
+  .label .f .v {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}

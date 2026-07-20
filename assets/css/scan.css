@@ -1,0 +1,141 @@
+/* =========================================================================
+ * KOWOO 중복 스캔 검사 (scan.css)
+ * 현장에서 멀리서도 보이도록 상태 배너를 크게. 색+글자+아이콘 3중 신호.
+ * ========================================================================= */
+
+.scanpage { background: var(--bg); }
+
+/* ---- 상태 배너 ---- */
+.status {
+  display: flex; align-items: center; gap: 18px;
+  padding: 20px 24px; color: #fff;
+  border-bottom: 3px solid rgba(0,0,0,.18);
+}
+.status[data-state="idle"] { background: #55606c; }
+.status[data-state="ok"]   { background: #17914a; }
+.status[data-state="dup"]  { background: var(--red); animation: dupflash .45s steps(1) 0s 5; }
+.status[data-state="bad"]  { background: #b06a10; }
+
+@keyframes dupflash {
+  0%, 49% { background: var(--red); }
+  50%, 100% { background: #6b1712; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status[data-state="dup"] { animation: none; }
+}
+
+.status .st-ic {
+  font-size: 34px; line-height: 1; width: 54px; height: 54px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.16); border-radius: 12px;
+}
+.status .st-main { flex: 1; min-width: 0; }
+.status .st-t { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+.status .st-s {
+  font-size: 13px; color: rgba(255,255,255,.85); margin-top: 3px;
+  font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.status .st-no {
+  flex: none; font-family: var(--mono); font-weight: 700; font-size: 38px;
+  line-height: 1; letter-spacing: -.03em; text-align: right;
+}
+
+/* ---- 레이아웃 ---- */
+.scan-layout {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  padding: 16px; max-width: 1200px; margin: 0 auto; align-items: start;
+}
+.scan-col { display: flex; flex-direction: column; gap: 16px; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 14px;
+}
+.card h2 {
+  font-size: 12px; font-weight: 700; margin: 0 0 10px; color: var(--ink-2);
+  display: flex; align-items: center; gap: 8px;
+}
+.card h2::before { content: ""; width: 3px; height: 12px; background: var(--ink); border-radius: 2px; }
+
+.row { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.hint { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
+/* ---- 카메라 ---- */
+.cam-wrap {
+  position: relative; background: #0d1117; border-radius: 8px; overflow: hidden;
+  aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center;
+}
+.cam-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-off {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  color: rgba(255,255,255,.7); font-size: 13px; text-align: center; padding: 16px;
+}
+.cam-off .hint { color: rgba(255,255,255,.5); max-width: 260px; }
+.reticle {
+  position: absolute; inset: 50% auto auto 50%; transform: translate(-50%,-50%);
+  width: 60%; aspect-ratio: 1; border: 2px solid rgba(255,255,255,.85);
+  border-radius: 10px; box-shadow: 0 0 0 2000px rgba(0,0,0,.28); pointer-events: none;
+}
+.cam-bar { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+.camsel {
+  flex: 1; border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px;
+  font-size: 12px; font-family: var(--sans); background: #fff; color: var(--ink);
+}
+
+textarea#wedge {
+  width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px;
+  font-family: var(--mono); font-size: 12px; color: var(--ink); outline: 0; resize: vertical;
+  line-height: 1.5;
+}
+textarea#wedge:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #e4eefb; }
+
+/* ---- 진행 현황 ---- */
+.prog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.prog-head .inv { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink); }
+.prog-num { font-family: var(--mono); font-weight: 700; line-height: 1; margin-bottom: 8px; }
+.prog-num b { font-size: 40px; letter-spacing: -.03em; }
+.prog-num span { font-size: 18px; color: var(--muted); margin-left: 3px; }
+.prog-bar { height: 8px; background: #e3e8ee; border-radius: 5px; overflow: hidden; }
+.prog-bar i { display: block; height: 100%; background: var(--tone-green, #17914a); border-radius: 5px; }
+.prog-sub { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; }
+.chip {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 4px 7px; border-radius: 5px; border: 1px solid var(--line);
+  background: #fff; color: var(--muted); min-width: 30px; text-align: center;
+}
+.chip.done { background: #e4f6ea; border-color: #a9dfbd; color: #0f7a37; }
+.chip.dup  { background: #fbe6e4; border-color: #efb3ad; color: #b32b2b; }
+
+/* ---- 로그 ---- */
+.log { max-height: 260px; overflow-y: auto; }
+.log-empty { color: var(--muted); font-size: 12px; padding: 14px 0; text-align: center; }
+.log-item {
+  display: flex; align-items: center; gap: 9px; padding: 8px 2px;
+  border-bottom: 1px solid var(--line); font-size: 12px;
+}
+.log-item:last-child { border-bottom: 0; }
+.log-item .lno {
+  font-family: var(--mono); font-weight: 700; font-size: 13px; min-width: 46px;
+}
+.log-item .ldesc {
+  flex: 1; min-width: 0; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.log-item .ltime { font-family: var(--mono); font-size: 11px; color: var(--muted); flex: none; }
+.log-item .tag {
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex: none;
+}
+.log-item.ok .tag  { background: #e4f6ea; color: #0f7a37; }
+.log-item.dup .tag { background: #fbe6e4; color: #b32b2b; }
+.log-item.bad .tag { background: #fdf1e0; color: #8a4b12; }
+.log-item.dup { background: #fef7f6; }
+
+@media (max-width: 900px) {
+  .scan-layout { grid-template-columns: 1fr; }
+  .status .st-t { font-size: 21px; }
+  .status .st-no { font-size: 30px; }
+}
+@media print { .scanpage { display: none; } }

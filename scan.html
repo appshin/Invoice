@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KOWOO 중복 스캔 검사</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/scan.css">
+</head>
+<body class="scanpage">
+
+<div class="topbar">
+  <span class="mark">KOWOO</span>
+  <div>
+    <div class="t">중복 스캔 검사</div>
+    <div class="s">Duplicate Scan Check</div>
+  </div>
+  <div class="spacer"></div>
+  <a class="btn on-dark" href="index.html">← 라벨 발행</a>
+</div>
+
+<!-- 큰 상태 배너 -->
+<div class="status" id="status" data-state="idle">
+  <div class="st-ic" id="stIc">▦</div>
+  <div class="st-main">
+    <div class="st-t" id="stT">스캔 대기 중</div>
+    <div class="st-s" id="stS">QR 코드를 스캔하세요</div>
+  </div>
+  <div class="st-no" id="stNo"></div>
+</div>
+
+<div class="scan-layout">
+
+  <!-- 좌: 스캔 입력 -->
+  <section class="scan-col">
+    <div class="card">
+      <h2>카메라 스캔</h2>
+      <div class="cam-wrap" id="camWrap">
+        <video id="video" playsinline muted></video>
+        <div class="cam-off" id="camOff">
+          <div>카메라가 꺼져 있습니다</div>
+          <button class="btn primary" id="btnCam">카메라 켜기</button>
+          <div class="hint" id="camHint">휴대폰·태블릿 카메라로 라벨을 비추면 자동 인식됩니다.</div>
+        </div>
+        <div class="reticle" id="reticle" hidden></div>
+      </div>
+      <div class="cam-bar" id="camBar" hidden>
+        <button class="btn sm" id="btnCamStop">카메라 끄기</button>
+        <select id="camSel" class="camsel"></select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>스캐너 / 직접 입력</h2>
+      <textarea id="wedge" rows="4" placeholder="현장 바코드 스캐너를 쓰거나, QR 내용을 붙여넣고 Ctrl+Enter"></textarea>
+      <div class="row">
+        <div class="hint">USB·블루투스 스캐너는 이 칸을 클릭해 두면 자동으로 입력됩니다.</div>
+        <button class="btn sm" id="btnWedge">확인</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 우: 진행 현황 -->
+  <section class="scan-col">
+    <div class="card">
+      <div class="prog-head">
+        <h2 style="margin:0">진행 현황</h2>
+        <div class="inv" id="invName">—</div>
+      </div>
+      <div class="prog-num"><b id="pDone">0</b><span id="pTotal">/ 0</span></div>
+      <div class="prog-bar"><i id="pBar" style="width:0%"></i></div>
+      <div class="prog-sub" id="pSub">아직 스캔한 라벨이 없습니다</div>
+      <div class="chips" id="chips"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn sm" id="btnExport">CSV 내보내기</button>
+        <button class="btn sm danger" id="btnReset" style="margin-left:auto">기록 초기화</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>스캔 기록</h2>
+      <div class="log" id="log"><div class="log-empty">기록이 없습니다</div></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/jsQR.js"></script>
+<script src="assets/js/scan.js"></script>
+</body>
+</html>

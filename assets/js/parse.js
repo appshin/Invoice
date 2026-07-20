@@ -1,7 +1,10 @@
 /* =========================================================================
  * KOWOO 인보이스 QR — 인보이스 파싱 (parse.js)
- * xlsx 워크북에서 (8) No. & Date of invoice 항목의 인보이스 번호/날짜 추출
- * 브라우저 + Node 양쪽에서 동작 (테스트 가능하도록 UMD 형태)
+ *  - (8) No. & Date of invoice → 인보이스 번호 / 날짜
+ *  - (10) Description of Goods → 품목별 파렛트 구성
+ *      ONE PALLET / PARTIAL PALLET / PARTIAL PALLET 3개 그룹
+ *      각 그룹: unit a pallet · No. of pallet · total Q'ty
+ * 브라우저 + Node 양쪽 동작 (테스트 가능하도록 UMD)
  * ========================================================================= */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -17,105 +20,183 @@
     return MONTHS[d.getMonth()] + '-' + d.getDate() + '-' + d.getFullYear();
   }
 
-  /* 엑셀 일련번호(1900 체계) → Date. SheetJS cellDates 미적용 대비 폴백 */
+  /* 엑셀 일련번호(1900 체계) → Date */
   function serialToDate(n) {
     if (typeof n !== 'number' || !isFinite(n) || n < 1 || n > 100000) return null;
-    var ms = Math.round((n - 25569) * 86400 * 1000);   // 1899-12-30 기준
-    var d = new Date(ms);
+    var d = new Date(Math.round((n - 25569) * 86400 * 1000));
     return isNaN(d) ? null : new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
 
   function norm(s) {
     return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
   }
-
-  /* 시트를 2차원 배열로 (SheetJS 필요) */
-  function toGrid(XLSX, ws) {
-    return XLSX.utils.sheet_to_json(ws, {
-      header: 1, raw: true, blankrows: true, defval: null
-    });
+  function num(v) {
+    if (typeof v === 'number' && isFinite(v)) return v;
+    if (typeof v === 'string') {
+      var n = parseFloat(v.replace(/,/g, ''));
+      return isFinite(n) ? n : 0;
+    }
+    return 0;
   }
-
   function asDate(v) {
     if (v instanceof Date && !isNaN(v)) return v;
     if (typeof v === 'number') return serialToDate(v);
     return null;
   }
 
-  /* 인보이스 번호 형태: KW260716-RM 처럼 영문+숫자+하이픈 조합 */
+  function toGrid(XLSX, ws) {
+    return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, blankrows: true, defval: null });
+  }
+
   function looksLikeInvoiceNo(v) {
     if (typeof v !== 'string') return false;
     var s = v.trim();
     if (s.length < 4 || s.length > 40) return false;
-    if (!/\d/.test(s)) return false;                 // 숫자 포함
+    if (!/\d/.test(s)) return false;
     if (!/^[A-Za-z0-9][A-Za-z0-9\-\/_. ]*$/.test(s)) return false;
-    if (/^\(\d+\)/.test(s)) return false;            // "(8) ..." 라벨 제외
+    if (/^\(\d+\)/.test(s)) return false;
     return true;
   }
 
   /* ---------------------------------------------------------------------
-   * 추출: (8) No. & Date of invoice 라벨을 찾아 바로 아래 행에서
-   *       인보이스 번호(문자열)와 날짜(Date)를 읽는다.
-   *       실패 시 G4/J4 고정 위치 → 패턴 스캔 순으로 폴백.
+   * 인보이스 번호 / 날짜
    * ------------------------------------------------------------------- */
-  function extract(XLSX, wb) {
-    var result = { invoiceNo: '', date: null, dateText: '', sheet: '', source: '' };
+  function extractHeader(grid, ws) {
+    var out = { invoiceNo: '', date: null, dateText: '', source: '' };
 
-    var sheetNames = wb.SheetNames.slice();
-    // 'packing list' 우선
-    sheetNames.sort(function (a, b) {
-      var pa = norm(a).indexOf('packinglist') === 0 ? 0 : 1;
-      var pb = norm(b).indexOf('packinglist') === 0 ? 0 : 1;
-      return pa - pb;
-    });
-
-    for (var si = 0; si < sheetNames.length; si++) {
-      var name = sheetNames[si];
-      var grid = toGrid(XLSX, wb.Sheets[name]);
-      if (!grid || !grid.length) continue;
-
-      /* 1) 라벨 기반 탐색 */
-      for (var r = 0; r < Math.min(grid.length, 40); r++) {
-        var row = grid[r] || [];
-        for (var c = 0; c < row.length; c++) {
-          var n = norm(row[c]);
-          if (n.indexOf('nodateofinvoice') === -1) continue;
-
-          var below = grid[r + 1] || [];
-          var inv = '', dt = null;
-          for (var k = c; k < Math.min(below.length, c + 12); k++) {
-            var v = below[k];
-            if (!inv && looksLikeInvoiceNo(v)) inv = String(v).trim();
-            if (!dt) { var d = asDate(v); if (d) dt = d; }
-          }
-          if (inv || dt) {
-            result.invoiceNo = inv; result.date = dt;
-            result.dateText = fmtDate(dt); result.sheet = name;
-            result.source = '라벨 "(8) No. & Date of invoice" 기준';
-            return result;
-          }
+    for (var r = 0; r < Math.min(grid.length, 40); r++) {
+      var row = grid[r] || [];
+      for (var c = 0; c < row.length; c++) {
+        if (norm(row[c]).indexOf('nodateofinvoice') === -1) continue;
+        var below = grid[r + 1] || [];
+        var inv = '', dt = null;
+        for (var k = c; k < Math.min(below.length, c + 12); k++) {
+          if (!inv && looksLikeInvoiceNo(below[k])) inv = String(below[k]).trim();
+          if (!dt) { var d = asDate(below[k]); if (d) dt = d; }
+        }
+        if (inv || dt) {
+          out.invoiceNo = inv; out.date = dt; out.dateText = fmtDate(dt);
+          out.source = '라벨 "(8) No. & Date of invoice" 기준';
+          return out;
         }
       }
+    }
+    // 폴백: G4 / J4
+    if (ws && ws['G4'] && looksLikeInvoiceNo(String(ws['G4'].v))) {
+      out.invoiceNo = String(ws['G4'].v).trim();
+      var d4 = ws['J4'] ? asDate(ws['J4'].v) : null;
+      out.date = d4; out.dateText = fmtDate(d4);
+      out.source = '고정 위치 G4 / J4';
+    }
+    return out;
+  }
 
-      /* 2) 고정 위치 폴백: G4 / J4 */
-      var ws = wb.Sheets[name];
-      var g4 = ws['G4'], j4 = ws['J4'];
-      if (g4 && looksLikeInvoiceNo(g4.v !== undefined ? String(g4.v) : '')) {
-        result.invoiceNo = String(g4.v).trim();
-        var d4 = j4 ? asDate(j4.v instanceof Date ? j4.v : (j4.t === 'd' ? j4.v : j4.v)) : null;
-        result.date = d4; result.dateText = fmtDate(d4); result.sheet = name;
-        result.source = '고정 위치 G4 / J4';
-        return result;
+  /* ---------------------------------------------------------------------
+   * 품목 / 파렛트 구성
+   * ------------------------------------------------------------------- */
+  function extractItems(grid) {
+    var res = { items: [], headerRow: -1, descCol: 0, qtyCol: -1, groups: [], note: '' };
+
+    /* 1) 'unit a pallet' 열 위치 → 그룹(ONE / PARTIAL / PARTIAL) 정의 */
+    var hRow = -1, groups = [];
+    for (var r = 0; r < Math.min(grid.length, 40) && hRow === -1; r++) {
+      var row = grid[r] || [], found = [];
+      for (var c = 0; c < row.length; c++) {
+        if (norm(row[c]) !== 'unitapallet') continue;
+        var cntCol = -1;
+        for (var k = c + 1; k < Math.min(row.length, c + 4); k++) {
+          if (norm(row[k]).indexOf('nofpallet') === 0 || norm(row[k]) === 'noofpallet') { cntCol = k; break; }
+        }
+        found.push({ unitCol: c, countCol: cntCol === -1 ? c + 1 : cntCol });
+      }
+      if (found.length) { hRow = r; groups = found; }
+    }
+    if (hRow === -1) { res.note = '파렛트 구성(unit a pallet) 헤더를 찾지 못했습니다.'; return res; }
+
+    /* 2) Description of Goods / Quantity 열 */
+    var descCol = 0, qtyCol = -1;
+    for (var rr = 0; rr <= hRow; rr++) {
+      var row2 = grid[rr] || [];
+      for (var cc = 0; cc < row2.length; cc++) {
+        var n2 = norm(row2[cc]);
+        if (n2.indexOf('descriptionofgoods') !== -1) descCol = cc;
+        if (n2.indexOf('quantity') !== -1 && qtyCol === -1) qtyCol = cc;
       }
     }
+    res.headerRow = hRow; res.descCol = descCol; res.qtyCol = qtyCol; res.groups = groups;
 
-    return result;
+    /* 3) 데이터 행 */
+    for (var r3 = hRow + 1; r3 < grid.length; r3++) {
+      var row3 = grid[r3] || [];
+      var desc = row3[descCol];
+      if (desc == null || !String(desc).trim()) continue;
+      if (norm(desc).indexOf('total') === 0) continue;      // 합계 행 제외
+
+      var gs = [];
+      for (var gi = 0; gi < groups.length; gi++) {
+        var unit = num(row3[groups[gi].unitCol]);
+        var cnt = Math.round(num(row3[groups[gi].countCol]));
+        if (unit > 0 && cnt > 0) gs.push({ unit: unit, count: cnt });
+      }
+      if (!gs.length) continue;                              // 이번 선적 대상 아님
+
+      var sum = gs.reduce(function (a, g) { return a + g.unit * g.count; }, 0);
+      var qty = qtyCol >= 0 ? num(row3[qtyCol]) : 0;
+
+      res.items.push({
+        desc: String(desc).trim(),
+        qty: qty || sum,
+        groups: gs,
+        pallets: gs.reduce(function (a, g) { return a + g.count; }, 0),
+        row: r3 + 1
+      });
+    }
+    return res;
+  }
+
+  /* 품목 → 라벨 목록 전개 (인보이스 전체 통합 일련번호) */
+  function buildLabels(items) {
+    var out = [];
+    (items || []).forEach(function (it, ii) {
+      if (it.enabled === false) return;
+      it.groups.forEach(function (g) {
+        for (var i = 0; i < g.count; i++) {
+          out.push({ desc: it.desc, qty: g.unit, itemIndex: ii });
+        }
+      });
+    });
+    out.forEach(function (l, i) { l.seq = i + 1; });
+    return out;
+  }
+
+  /* 통합 추출 */
+  function extract(XLSX, wb) {
+    var names = wb.SheetNames.slice().sort(function (a, b) {
+      return (norm(a).indexOf('packinglist') === 0 ? 0 : 1) -
+             (norm(b).indexOf('packinglist') === 0 ? 0 : 1);
+    });
+    var best = null;
+    for (var i = 0; i < names.length; i++) {
+      var ws = wb.Sheets[names[i]];
+      var grid = toGrid(XLSX, ws);
+      if (!grid || !grid.length) continue;
+      var h = extractHeader(grid, ws);
+      var it = extractItems(grid);
+      var r = {
+        invoiceNo: h.invoiceNo, date: h.date, dateText: h.dateText,
+        source: h.source, sheet: names[i],
+        items: it.items, itemNote: it.note
+      };
+      if (h.invoiceNo || it.items.length) return r;
+      if (!best) best = r;
+    }
+    return best || { invoiceNo: '', date: null, dateText: '', source: '',
+                     sheet: '', items: [], itemNote: '' };
   }
 
   return {
-    extract: extract,
-    fmtDate: fmtDate,
-    serialToDate: serialToDate,
+    extract: extract, extractItems: extractItems, extractHeader: extractHeader,
+    buildLabels: buildLabels, fmtDate: fmtDate, serialToDate: serialToDate,
     looksLikeInvoiceNo: looksLikeInvoiceNo
   };
 }));

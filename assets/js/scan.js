@@ -349,25 +349,50 @@
     var f = makeCsvFile();
     var dev = deviceInfo();
 
-    // 폰: 공유(카톡·메일·드라이브·파일 저장)를 곧바로 띄운다.
-    //     파일 공유가 가능한 브라우저면 바로 공유 시트를 연다.
-    if (dev.isMobile && navigator.share &&
-        f.file && navigator.canShare && navigator.canShare({ files: [f.file] })) {
-      navigator.share({ files: [f.file], title: f.fname,
-        text: (state.invoice || '') + ' 스캔 기록 (' + uniqueDone().length + '건)' })
-        .then(function () { toast('공유했습니다'); })
-        .catch(function (e) {
-          // 사용자가 취소했거나 실패 → 다운로드로 대체하고 안내창 표시
-          if (e && e.name === 'AbortError') return;   // 취소는 조용히
-          downloadFile(f.fname, f.blob);
-          showDownloadInfo(f.fname, f.blob);
-        });
+    // 폰: navigator.share 만 있으면 무조건 공유 시트를 띄운다.
+    //   - 파일 첨부가 가능하면 CSV 파일을 공유(카톡·메일·드라이브·파일저장)
+    //   - 파일 첨부가 막힌 브라우저(삼성 인터넷 일부 등)면 내용을 텍스트로 공유하고
+    //     파일도 함께 다운로드해 둔다.
+    if (dev.isMobile && navigator.share) {
+      var canFile = false;
+      try { canFile = !!(f.file && navigator.canShare && navigator.canShare({ files: [f.file] })); }
+      catch (e) { canFile = false; }
+
+      if (canFile) {
+        navigator.share({ files: [f.file], title: f.fname,
+          text: (state.invoice || '') + ' 스캔 기록 (' + uniqueDone().length + '건)' })
+          .then(function () { toast('공유했습니다'); })
+          .catch(function (e) {
+            if (e && e.name === 'AbortError') return;      // 취소는 조용히
+            downloadFile(f.fname, f.blob); showDownloadInfo(f.fname, f.blob);
+          });
+      } else {
+        // 파일 첨부 불가 → 파일은 저장해 두고, 스캔 요약을 텍스트로 공유
+        downloadFile(f.fname, f.blob);
+        navigator.share({ title: f.fname, text: shareSummaryText() })
+          .then(function () { toast('공유했습니다'); })
+          .catch(function (e) {
+            if (e && e.name === 'AbortError') return;
+            showDownloadInfo(f.fname, f.blob);           // 공유도 실패하면 안내창
+          });
+      }
       return;
     }
 
-    // 그 외(PC, 공유 미지원 폰): 다운로드 후 위치 안내
+    // PC 등: 다운로드 후 위치 안내
     downloadFile(f.fname, f.blob);
     showDownloadInfo(f.fname, f.blob);
+  }
+
+  /* 파일 첨부가 안 될 때 공유할 요약 텍스트 (카톡·메모 등에 붙여넣기 좋게) */
+  function shareSummaryText() {
+    var done = uniqueDone().length, total = state.total || 0;
+    var dups = state.records.filter(function (r) { return r.dup; }).length;
+    var lines = [];
+    lines.push('[' + (state.invoice || '스캔') + '] 스캔 기록');
+    lines.push('스캔 ' + done + '/' + total + '장' + (dups ? ' · 중복 ' + dups + '회' : ''));
+    lines.push('CSV 파일은 다운로드 폴더에 저장했습니다: ' + ('scan-' + (state.invoice || 'log') + '.csv'));
+    return lines.join('\n');
   }
 
   /* ---- 저장 위치 안내 모달 ---- */

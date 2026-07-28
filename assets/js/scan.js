@@ -327,20 +327,47 @@
              isChrome: isChrome, isMobile: isAndroid || isIOS };
   }
 
-  function exportCsv() {
-    if (!state.records.length) { toast('기록이 없습니다'); return; }
+  function makeCsvFile() {
     var csv = buildCsv();
     var fname = 'scan-' + (state.invoice || 'log') + '.csv';
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var file = null;
+    try { file = new File([blob], fname, { type: 'text/csv' }); } catch (e) {}
+    return { csv: csv, fname: fname, blob: blob, file: file };
+  }
 
-    // 파일 저장 (다운로드)
+  function downloadFile(fname, blob) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url; a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
 
-    showDownloadInfo(fname, blob);
+  function exportCsv() {
+    if (!state.records.length) { toast('기록이 없습니다'); return; }
+    var f = makeCsvFile();
+    var dev = deviceInfo();
+
+    // 폰: 공유(카톡·메일·드라이브·파일 저장)를 곧바로 띄운다.
+    //     파일 공유가 가능한 브라우저면 바로 공유 시트를 연다.
+    if (dev.isMobile && navigator.share &&
+        f.file && navigator.canShare && navigator.canShare({ files: [f.file] })) {
+      navigator.share({ files: [f.file], title: f.fname,
+        text: (state.invoice || '') + ' 스캔 기록 (' + uniqueDone().length + '건)' })
+        .then(function () { toast('공유했습니다'); })
+        .catch(function (e) {
+          // 사용자가 취소했거나 실패 → 다운로드로 대체하고 안내창 표시
+          if (e && e.name === 'AbortError') return;   // 취소는 조용히
+          downloadFile(f.fname, f.blob);
+          showDownloadInfo(f.fname, f.blob);
+        });
+      return;
+    }
+
+    // 그 외(PC, 공유 미지원 폰): 다운로드 후 위치 안내
+    downloadFile(f.fname, f.blob);
+    showDownloadInfo(f.fname, f.blob);
   }
 
   /* ---- 저장 위치 안내 모달 ---- */
@@ -372,17 +399,11 @@
     var hint = $('#dlHint'); hint.textContent = '';
 
     // ① 공유 (폰에서 가장 편함: 카톡·메일·드라이브로 바로 전송/저장)
-    var canShareFile = false;
-    try {
-      var testFile = new File([blob], fname, { type: 'text/csv' });
-      canShareFile = !!(navigator.canShare && navigator.canShare({ files: [testFile] }));
-    } catch (e) { canShareFile = false; }
-
     if (dev.isMobile && navigator.share) {
       var bShare = document.createElement('button');
       bShare.className = 'btn primary';
       bShare.innerHTML = '📤 공유 / 다른 앱으로 보내기';
-      bShare.onclick = function () { shareCsv(fname); };
+      bShare.onclick = function () { shareCsv(); };
       actions.appendChild(bShare);
       extra.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
         '공유를 누르면 <b>카카오톡·메일·드라이브</b> 등으로 바로 보내거나 원하는 폴더에 저장할 수 있습니다.</div>';
@@ -426,22 +447,22 @@
     $('#dlOverlay').hidden = false;
   }
 
-  function shareCsv(fname) {
-    var csv = buildCsv();
-    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    var file = null;
-    try { file = new File([blob], fname, { type: 'text/csv' }); } catch (e) {}
-
-    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: fname,
-        text: (state.invoice || '') + ' 스캔 기록' })
-        .then(function () { closeDownloadInfo(); })
-        .catch(function () { /* 사용자가 취소 */ });
+  function shareCsv() {
+    var f = makeCsvFile();
+    if (f.file && navigator.canShare && navigator.canShare({ files: [f.file] })) {
+      navigator.share({ files: [f.file], title: f.fname,
+        text: (state.invoice || '') + ' 스캔 기록 (' + uniqueDone().length + '건)' })
+        .then(function () { closeDownloadInfo(); toast('공유했습니다'); })
+        .catch(function (e) { if (e && e.name === 'AbortError') return; });
     } else if (navigator.share) {
-      // 파일 공유 미지원 → 텍스트로라도 공유
-      navigator.share({ title: fname, text: csv }).catch(function () {});
+      // 파일 첨부가 막힌 브라우저 → 파일은 따로 저장해 두고, 내용을 텍스트로 공유
+      downloadFile(f.fname, f.blob);
+      navigator.share({ title: f.fname, text: f.csv })
+        .then(function () { closeDownloadInfo(); })
+        .catch(function () {});
     } else {
-      toast('이 브라우저는 공유를 지원하지 않습니다');
+      downloadFile(f.fname, f.blob);
+      toast('공유 미지원 → 파일로 저장했습니다');
     }
   }
 

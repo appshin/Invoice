@@ -89,6 +89,26 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- CSV 저장 안내 모달 -->
+<div class="dl-overlay" id="dlOverlay" hidden>
+  <div class="dl-modal">
+    <div class="dl-head">
+      <div class="ic">✓</div>
+      <div>
+        <h3>CSV 파일을 저장했습니다</h3>
+        <div class="fname" id="dlFname">scan.csv</div>
+      </div>
+    </div>
+    <div class="dl-body">
+      <div>저장 위치는 기기·브라우저에 따라 다릅니다.</div>
+      <div class="dl-path" id="dlPath"></div>
+      <div id="dlExtra"></div>
+    </div>
+    <div class="dl-actions" id="dlActions"></div>
+    <div class="dl-hint" id="dlHint"></div>
+  </div>
+</div>
+
 <script src="assets/js/jsQR.js"></script>
 <script src="assets/js/scan.js"></script>
 </body>

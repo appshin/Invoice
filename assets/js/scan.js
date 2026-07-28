@@ -305,21 +305,148 @@
   }
 
   /* ---- CSV ---- */
-  function exportCsv() {
-    if (!state.records.length) { toast('기록이 없습니다'); return; }
+  function buildCsv() {
     var rows = [['인보이스','번호','상태','품목','수량','시각']];
     state.records.slice().reverse().forEach(function (r) {
       rows.push([state.invoice, r.no, r.bad ? '알수없음' : (r.dup ? '중복' : '정상'),
                  r.desc || '', r.qty || '', r.t]);
     });
-    var csv = '\ufeff' + rows.map(function (r) {
+    return '\ufeff' + rows.map(function (r) {
       return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
     }).join('\r\n');
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = 'scan-' + (state.invoice || 'log') + '.csv';
-    a.click(); URL.revokeObjectURL(a.href);
   }
+
+  function deviceInfo() {
+    var ua = navigator.userAgent || '';
+    var isAndroid = /Android/i.test(ua);
+    var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+                (/Macintosh/.test(ua) && 'ontouchend' in document);   // iPadOS
+    var isSamsung = /SamsungBrowser/i.test(ua);
+    var isChrome = /Chrome/i.test(ua) && !/Edg|SamsungBrowser/i.test(ua);
+    return { isAndroid: isAndroid, isIOS: isIOS, isSamsung: isSamsung,
+             isChrome: isChrome, isMobile: isAndroid || isIOS };
+  }
+
+  function exportCsv() {
+    if (!state.records.length) { toast('기록이 없습니다'); return; }
+    var csv = buildCsv();
+    var fname = 'scan-' + (state.invoice || 'log') + '.csv';
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+
+    // 파일 저장 (다운로드)
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+
+    showDownloadInfo(fname, blob);
+  }
+
+  /* ---- 저장 위치 안내 모달 ---- */
+  function showDownloadInfo(fname, blob) {
+    var dev = deviceInfo();
+    $('#dlFname').textContent = fname;
+
+    // 기기별 저장 경로 안내
+    var pathHtml = '';
+    if (dev.isAndroid) {
+      pathHtml = '<span class="os">안드로이드</span>' +
+        '<b>내장메모리 › Download</b> 폴더<br>' +
+        '(내 파일 · 파일 관리자 앱에서 <b>다운로드</b> 폴더)';
+    } else if (dev.isIOS) {
+      pathHtml = '<span class="os">아이폰 · 아이패드</span>' +
+        '<b>파일 앱 › 다운로드</b><br>' +
+        '(Safari는 화면 위쪽 <b>↓ 다운로드 아이콘</b>을 눌러도 열립니다)';
+    } else {
+      pathHtml = '<span class="os">PC</span>' +
+        '보통 <b>다운로드(Downloads)</b> 폴더에 저장됩니다.<br>' +
+        '브라우저 다운로드 목록(Ctrl+J)에서 바로 열 수 있습니다.';
+    }
+    $('#dlPath').innerHTML = pathHtml;
+
+    // 액션 버튼 구성
+    var actions = $('#dlActions');
+    actions.innerHTML = '';
+    var extra = $('#dlExtra'); extra.innerHTML = '';
+    var hint = $('#dlHint'); hint.textContent = '';
+
+    // ① 공유 (폰에서 가장 편함: 카톡·메일·드라이브로 바로 전송/저장)
+    var canShareFile = false;
+    try {
+      var testFile = new File([blob], fname, { type: 'text/csv' });
+      canShareFile = !!(navigator.canShare && navigator.canShare({ files: [testFile] }));
+    } catch (e) { canShareFile = false; }
+
+    if (dev.isMobile && navigator.share) {
+      var bShare = document.createElement('button');
+      bShare.className = 'btn primary';
+      bShare.innerHTML = '📤 공유 / 다른 앱으로 보내기';
+      bShare.onclick = function () { shareCsv(fname); };
+      actions.appendChild(bShare);
+      extra.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+        '공유를 누르면 <b>카카오톡·메일·드라이브</b> 등으로 바로 보내거나 원하는 폴더에 저장할 수 있습니다.</div>';
+    }
+
+    // ② 다운로드 목록/폴더 열기
+    if (dev.isAndroid && dev.isChrome) {
+      // 크롬 안드로이드: 다운로드 목록 페이지로 이동 가능
+      var bDl = document.createElement('button');
+      bDl.className = 'btn';
+      bDl.textContent = '⬇ 브라우저 다운로드 목록 열기';
+      bDl.onclick = function () {
+        // 새 탭으로 크롬 다운로드 화면 시도
+        var w = window.open('chrome://downloads', '_blank');
+        if (!w) {
+          hint.textContent = '주소창에 chrome://downloads 를 입력하면 다운로드 목록이 열립니다.';
+        }
+        closeDownloadInfoLater();
+      };
+      actions.appendChild(bDl);
+      hint.textContent = '버튼이 막히면: 크롬 우측 상단 ⋮ 메뉴 → "다운로드"';
+    } else if (dev.isAndroid) {
+      hint.textContent = '파일 위치: 브라우저 메뉴 → 다운로드, 또는 "내 파일" 앱의 다운로드 폴더';
+    } else if (dev.isIOS) {
+      hint.innerHTML = 'Safari 화면 위쪽 <b>↓</b> 아이콘 → 파일을 탭하면 파일 앱에서 열립니다.';
+    } else {
+      var bJ = document.createElement('button');
+      bJ.className = 'btn';
+      bJ.textContent = '다운로드 목록 열기 (Ctrl+J)';
+      bJ.onclick = function () { toast('키보드에서 Ctrl+J 를 누르세요'); };
+      actions.appendChild(bJ);
+    }
+
+    // 닫기
+    var bClose = document.createElement('button');
+    bClose.className = 'btn ghost';
+    bClose.textContent = '닫기';
+    bClose.onclick = closeDownloadInfo;
+    actions.appendChild(bClose);
+
+    $('#dlOverlay').hidden = false;
+  }
+
+  function shareCsv(fname) {
+    var csv = buildCsv();
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var file = null;
+    try { file = new File([blob], fname, { type: 'text/csv' }); } catch (e) {}
+
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: fname,
+        text: (state.invoice || '') + ' 스캔 기록' })
+        .then(function () { closeDownloadInfo(); })
+        .catch(function () { /* 사용자가 취소 */ });
+    } else if (navigator.share) {
+      // 파일 공유 미지원 → 텍스트로라도 공유
+      navigator.share({ title: fname, text: csv }).catch(function () {});
+    } else {
+      toast('이 브라우저는 공유를 지원하지 않습니다');
+    }
+  }
+
+  function closeDownloadInfo() { $('#dlOverlay').hidden = true; }
+  function closeDownloadInfoLater() { setTimeout(closeDownloadInfo, 400); }
 
   /* ---- 초기화 ---- */
   function bind() {
@@ -327,6 +454,9 @@
     $('#btnCamStop').onclick = stopCam;
     $('#camSel').onchange = function (e) { stopCam(); startCam(e.target.value); };
     $('#btnExport').onclick = exportCsv;
+    $('#dlOverlay').addEventListener('click', function (e) {
+      if (e.target === $('#dlOverlay')) closeDownloadInfo();
+    });
     $('#btnReset').onclick = function () {
       if (!state.records.length) { toast('기록이 없습니다'); return; }
       if (!confirm('스캔 기록을 모두 지울까요?\n(' + state.invoice + ' · ' +

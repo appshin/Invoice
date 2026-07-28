@@ -195,21 +195,26 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
 .label .f { display: flex; flex-direction: column; }
 .label .f .k {
   font-size: 13px; font-weight: 500; color: var(--ink);
-  margin-bottom: 3px; line-height: 1.2;
+  height: 6mm; line-height: 6mm; flex: none;
 }
 /* 원본 인보이스와 동일하게 값에 노란 하이라이트 */
 .label .f .v {
   background: var(--yellow); border: 1px solid var(--rule);
   font-family: var(--mono); font-weight: 700; color: var(--ink);
-  font-size: 21px; line-height: 1.35; padding: 5px 9px;
-  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 21px; height: 12mm; flex: none; padding: 0 9px;
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* 품명은 길어서 2줄까지 접힘 */
-.label .f.desc { flex: 1; }
+/* 품명: 남은 공간(=50mm)을 전부 차지, 글자 크기는 JS가 꽉 차게 계산,
+   가로·세로 중앙 정렬로 멀리서도 잘 보이게 */
+.label .f.desc { flex: 1; min-height: 0; }
 .label .f.desc .v {
-  font-size: 15px; white-space: normal; text-align: left;
-  display: flex; align-items: center; min-height: 100%;
-  word-break: break-word;
+  flex: 1; height: auto; padding: 2mm 3mm;
+  white-space: normal; text-align: center;
+  align-items: center; justify-content: center;
+  line-height: 1.18; overflow: hidden;
+  word-break: break-all;      /* 계산과 동일하게: 어디서든 끊어 글자를 최대한 키움 */
+  overflow-wrap: anywhere;
 }
 .label .txt {
   font-family: var(--mono); font-size: 8px; color: var(--muted);

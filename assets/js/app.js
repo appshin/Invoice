@@ -54,6 +54,60 @@
     }
   }
 
+  /* -------------------------------------------------------------------
+   * 품명(Description of Goods) 글자 크기 자동 맞춤
+   *   노란 박스를 가로·세로로 최대한 꽉 채우도록 계산한다.
+   *   박스 치수(app.css 라벨 레이아웃과 일치):
+   *     라벨 136mm − 여백 14mm = 122mm
+   *     고정 3필드 (6+12)*3 = 54mm · 간격 4mm*3 = 12mm · 품명 라벨 6mm
+   *     → 품명 박스 50mm(높이) × 103mm(너비), 안쪽 여백 2mm/3mm
+   *   높이 조건과 "가장 긴 단어가 한 줄에 들어가는" 너비 조건을 모두 만족하는
+   *   최대 글자 크기를 찾는다. 등폭 글꼴이라 화면=인쇄 결과가 일치.
+   * ----------------------------------------------------------------- */
+  var PX_PER_MM = 96 / 25.4;
+  var DESC_BOX = { w: 103, h: 50, padX: 3, padY: 2 };
+  var CHAR_W = 0.62;          // 등폭 글꼴 문자폭 비율 (실측 0.60 + 안전분)
+  var LINE_H = 1.18;
+  var FONT_MIN = 10, FONT_MAX = 200;
+  var fitCache = {};
+
+  /* CSS word-break:break-all 과 동일한 줄 수 계산:
+     글자가 어디서든 끊기므로, 한 줄에 cpl자씩 채운다고 보면 된다.
+     (공백은 줄 끝에서 접히므로 대략 총 길이 기준으로 계산해도 안전)
+     안전분을 위해 각 공백을 줄바꿈 후보로 보되 최악의 경우인 '총길이/cpl'로 산정 */
+  function countLines(text, cpl) {
+    if (cpl < 1) return 1e9;
+    var words = String(text).split(/\s+/).filter(Boolean);
+    if (!words.length) return 1;
+    var lines = 1, cur = 0;
+    words.forEach(function (word) {
+      // 단어가 칸보다 길면 break-all 로 쪼개짐
+      while (word.length > cpl) {
+        if (cur > 0) { lines++; cur = 0; }
+        lines++; word = word.slice(cpl);
+      }
+      if (cur === 0) { cur = word.length; }
+      else if (cur + 1 + word.length <= cpl) { cur += 1 + word.length; }
+      else { lines++; cur = word.length; }
+    });
+    return lines;
+  }
+
+  function descFontSize(text) {
+    if (!text) return FONT_MIN;
+    if (fitCache[text]) return fitCache[text];
+    var W = (DESC_BOX.w - DESC_BOX.padX * 2) * PX_PER_MM;
+    var H = (DESC_BOX.h - DESC_BOX.padY * 2) * PX_PER_MM;
+    var best = FONT_MIN;
+    for (var f = FONT_MIN; f <= FONT_MAX; f++) {
+      var cpl = Math.floor(W / (CHAR_W * f));
+      if (cpl < 1) break;
+      if (countLines(text, cpl) * LINE_H * f <= H) best = f;
+    }
+    fitCache[text] = best;
+    return best;
+  }
+
   /* ---- 라벨 목록 재계산 ---- */
   function rebuild() {
     st.labels = P.buildLabels(st.items);
@@ -126,7 +180,8 @@
       '<div class="fields">' +
         '<div class="f desc">' +
           '<div class="k">Description of Goods</div>' +
-          '<div class="v">' + esc(label.desc || '—') + '</div>' +
+          '<div class="v" style="font-size:' + descFontSize(label.desc) + 'px">' +
+            esc(label.desc || '—') + '</div>' +
         '</div>' +
         '<div class="f">' +
           '<div class="k">INVOICE NO.</div>' +

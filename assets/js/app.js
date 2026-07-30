@@ -240,10 +240,13 @@
       'A4 <b>' + pages + '</b>장 (한 장에 6개)';
 
     // 6개 단위로 페이지(sheet)를 나누고, 각 페이지의 남는 칸은 빈 라벨로 채움
+    var calib = $('#f_calib') && $('#f_calib').checked;
+    var rulers = calib ? rulerHtml() : '';
     var html = '';
     var idx = r.from - 1;
     for (var p = 0; p < pages; p++) {
-      html += '<div class="sheet"><div class="labels">';
+      html += '<div class="sheet' + (calib ? ' calib' : '') + '">' + rulers +
+              '<div class="labels">';
       for (var k = 0; k < 6; k++) {
         if (idx <= r.to - 1) { html += labelHtml(st.labels[idx], r.n); idx++; }
         else { html += blankLabelHtml(); }
@@ -251,6 +254,24 @@
       html += '</div></div>';
     }
     root.innerHTML = html;
+  }
+
+  /* 보정 눈금(자): 상단(가로) + 좌측(세로) mm 눈금 */
+  function rulerHtml() {
+    var top = '', left = '';
+    for (var mm = 0; mm <= 210; mm++) {
+      var cls = mm % 10 === 0 ? 'cm' : 'mm';
+      top += '<span class="tick ' + cls + '" style="left:' + mm + 'mm"></span>';
+      if (mm % 10 === 0) top += '<span class="lbl" style="left:' + mm + 'mm">' + (mm/10) + '</span>';
+    }
+    for (var my = 0; my <= 297; my++) {
+      var c2 = my % 10 === 0 ? 'cm' : 'mm';
+      left += '<span class="tick ' + c2 + '" style="top:' + my + 'mm"></span>';
+      if (my % 10 === 0 && my > 0) left += '<span class="lbl" style="top:' + my + 'mm">' + (my/10) + '</span>';
+    }
+    return '<div class="ruler top">' + top + '</div>' +
+           '<div class="ruler left">' + left + '</div>' +
+           '<div class="calib-note">보정용 눈금 (단위 cm) — 왼쪽/오른쪽 여백을 자로 재세요</div>';
   }
 
   /* ---- 엑셀 읽기 ---- */
@@ -358,6 +379,7 @@
     $('#btnNudgeReset').onclick = function () {
       $('#f_nudgeX').value = 0; $('#f_nudgeY').value = 0; applyNudge();
     };
+    $('#f_calib').addEventListener('change', render);
     $('#btnPrint').onclick = function () { window.print(); };
     $('#btnPrint2').onclick = function () { window.print(); };
     $('#btnSample').onclick = sample;

@@ -87,6 +87,24 @@
     </div>
 
     <div class="pblock">
+      <h2>5. 스티커 위치 미세조정</h2>
+      <div class="grid2">
+        <div class="field">
+          <label>좌우 이동 (mm, +오른쪽)</label>
+          <input id="f_nudgeX" type="number" step="0.5" value="0" class="mono">
+        </div>
+        <div class="field">
+          <label>상하 이동 (mm, +아래)</label>
+          <input id="f_nudgeY" type="number" step="0.5" value="0" class="mono">
+        </div>
+      </div>
+      <button class="btn sm" id="btnNudgeReset" style="width:100%">0으로 되돌리기</button>
+      <div class="field" style="margin-top:9px">
+        <div class="hint">인쇄물이 스티커 칸과 어긋날 때만 사용하세요. 일반 A4에 시험 인쇄 → 스티커에 겹쳐보고, 밀린 만큼 값을 넣으면 됩니다. 인쇄 설정은 <b>여백 없음 · 배율 100%</b>.</div>
+      </div>
+    </div>
+
+    <div class="pblock">
       <h2>QR 내용 (1번 라벨 기준)</h2>
       <div class="payload" id="payloadPreview">파일을 올려주세요</div>
       <div class="note" style="margin-top:9px">

@@ -165,8 +165,9 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
 :root {
   --label-w: 100mm;
   --label-h: 93mm;
-  --sheet-mt: 9mm;   /* 시트 상단 여백 */
-  --sheet-ml: 5mm;   /* 시트 좌측 여백 */
+  --sheet-mt: 9mm;   /* 시트 상단 여백 (스티커 첫 줄 시작 위치) */
+  --nudge-x: 0mm;    /* 좌우 미세조정 (양수=오른쪽으로) */
+  --nudge-y: 0mm;    /* 상하 미세조정 (양수=아래로) */
 }
 
 .labels {
@@ -174,8 +175,9 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
   grid-template-columns: repeat(2, var(--label-w));
   grid-auto-rows: var(--label-h);
   gap: 0;
-  justify-content: start;
-  padding: var(--sheet-mt) 0 0 var(--sheet-ml);
+  justify-content: center;   /* 좌우 가운데 정렬 → 프린터와 무관하게 여백 균등 */
+  padding-top: var(--sheet-mt);
+  transform: translate(var(--nudge-x), var(--nudge-y));
 }
 
 .label {
@@ -211,8 +213,12 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
   padding: 1mm 3mm; line-height: 1.1; overflow: hidden;
   white-space: nowrap;
 }
-/* 핵심어: 남은 세로 공간을 크게 차지 (글자 크기는 JS가 계산) */
-.label .key { flex: 1; min-width: 0; font-size: 40px; }
+/* 핵심어: 남은 세로 공간을 크게 차지. 길면 줄바꿈되어 잘리지 않게 */
+.label .key {
+  flex: 1; min-width: 0; font-size: 40px;
+  white-space: normal; text-align: center;
+  word-break: break-all; overflow-wrap: anywhere; line-height: 1.05;
+}
 /* 수량: 오른쪽 고정폭 */
 .label .qty { flex: none; width: 34mm; font-size: 24px; }
 /* 인보이스: 아래 한 줄 전체 */

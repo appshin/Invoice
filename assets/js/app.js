@@ -180,12 +180,12 @@
     var qtyText = fmtQty(label.qty);
     var invText = st.invoiceNo || '—';
 
-    // 핵심어 박스: 폭 약 50mm × 높이 약 30mm (남은 세로 공간)
-    var keyF = fitFont(key, 48, 28, false);
-    // 수량 박스: 폭 30mm × 높이 30mm, 한 줄
-    var qtyF = fitFont(qtyText, 30, 26, true);
-    // 인보이스 박스: 폭 86mm × 높이 11mm, 한 줄
-    var invF = fitFont(invText, 84, 10, true);
+    // 핵심어 박스 실제 안쪽: 폭 ≈47mm(53−패딩6) × 높이 ≈24mm. 줄바꿈 허용
+    var keyF = fitFont(key, 47, 24, false);
+    // 수량 박스: 안쪽 폭 ≈28mm × 높이 ≈22mm, 한 줄
+    var qtyF = fitFont(qtyText, 28, 22, true);
+    // 인보이스 박스: 안쪽 폭 ≈84mm × 높이 ≈9mm, 한 줄
+    var invF = fitFont(invText, 84, 9, true);
 
     return '<div class="label">' +
       '<div class="top">' +
@@ -351,11 +351,26 @@
       $(s).addEventListener('change', render);
     });
     $('#btnAllRange').onclick = function () { resetRange(); render(); };
+    ['#f_nudgeX', '#f_nudgeY'].forEach(function (s) {
+      $(s).addEventListener('input', applyNudge);
+      $(s).addEventListener('change', applyNudge);
+    });
+    $('#btnNudgeReset').onclick = function () {
+      $('#f_nudgeX').value = 0; $('#f_nudgeY').value = 0; applyNudge();
+    };
     $('#btnPrint').onclick = function () { window.print(); };
     $('#btnPrint2').onclick = function () { window.print(); };
     $('#btnSample').onclick = sample;
   }
 
-  function init() { bind(); renderItems(); render(); }
+  /* 스티커 위치 미세조정 → CSS 변수로 시트 전체 이동 */
+  function applyNudge() {
+    var x = parseFloat($('#f_nudgeX').value) || 0;
+    var y = parseFloat($('#f_nudgeY').value) || 0;
+    document.documentElement.style.setProperty('--nudge-x', x + 'mm');
+    document.documentElement.style.setProperty('--nudge-y', y + 'mm');
+  }
+
+  function init() { bind(); renderItems(); render(); applyNudge(); }
   document.addEventListener('DOMContentLoaded', init);
 })();

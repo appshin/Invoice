@@ -65,23 +65,25 @@
    *   최대 글자 크기를 찾는다. 등폭 글꼴이라 화면=인쇄 결과가 일치.
    * ----------------------------------------------------------------- */
   var PX_PER_MM = 96 / 25.4;
-  var DESC_BOX = { w: 103, h: 50, padX: 3, padY: 2 };
   var CHAR_W = 0.62;          // 등폭 글꼴 문자폭 비율 (실측 0.60 + 안전분)
-  var LINE_H = 1.18;
-  var FONT_MIN = 10, FONT_MAX = 200;
+  var LINE_H = 1.12;
+  var FONT_MIN = 8, FONT_MAX = 240;
   var fitCache = {};
 
-  /* CSS word-break:break-all 과 동일한 줄 수 계산:
-     글자가 어디서든 끊기므로, 한 줄에 cpl자씩 채운다고 보면 된다.
-     (공백은 줄 끝에서 접히므로 대략 총 길이 기준으로 계산해도 안전)
-     안전분을 위해 각 공백을 줄바꿈 후보로 보되 최악의 경우인 '총길이/cpl'로 산정 */
+  /* 품명에서 괄호 안 값만 추출: "…PIPE(TIAGO)_size…" → "TIAGO"
+     괄호가 없으면 품명 전체를 그대로 사용 */
+  function keyword(desc) {
+    var m = /[(（]([^)）]+)[)）]/.exec(String(desc || ''));
+    return m ? m[1].trim() : String(desc || '').trim();
+  }
+
+  /* break-all 기준 줄 수 계산 */
   function countLines(text, cpl) {
     if (cpl < 1) return 1e9;
     var words = String(text).split(/\s+/).filter(Boolean);
     if (!words.length) return 1;
     var lines = 1, cur = 0;
     words.forEach(function (word) {
-      // 단어가 칸보다 길면 break-all 로 쪼개짐
       while (word.length > cpl) {
         if (cur > 0) { lines++; cur = 0; }
         lines++; word = word.slice(cpl);
@@ -93,18 +95,21 @@
     return lines;
   }
 
-  function descFontSize(text) {
-    if (!text) return FONT_MIN;
-    if (fitCache[text]) return fitCache[text];
-    var W = (DESC_BOX.w - DESC_BOX.padX * 2) * PX_PER_MM;
-    var H = (DESC_BOX.h - DESC_BOX.padY * 2) * PX_PER_MM;
+  /* 지정한 박스(mm)를 꽉 채우는 최대 글자 크기(px).
+     wmm×hmm = 글자가 들어갈 안쪽 영역, single=한 줄 강제 여부 */
+  function fitFont(text, wmm, hmm, single) {
+    text = String(text || '');
+    var ck = text + '|' + wmm + '|' + hmm + '|' + (single ? 1 : 0);
+    if (fitCache[ck]) return fitCache[ck];
+    var W = wmm * PX_PER_MM, H = hmm * PX_PER_MM;
     var best = FONT_MIN;
     for (var f = FONT_MIN; f <= FONT_MAX; f++) {
       var cpl = Math.floor(W / (CHAR_W * f));
       if (cpl < 1) break;
-      if (countLines(text, cpl) * LINE_H * f <= H) best = f;
+      var lines = single ? (text.length <= cpl ? 1 : 1e9) : countLines(text, cpl);
+      if (lines * LINE_H * f <= H) best = f;
     }
-    fitCache[text] = best;
+    fitCache[ck] = best;
     return best;
   }
 
@@ -164,12 +169,26 @@
     $('#f_to').value = Math.max(1, n);
   }
 
-  /* ---- 라벨 HTML ---- */
+  /* ---- 라벨 HTML (스티커: 100 x 93mm) ----
+   * 내부 여백 5mm → 안쪽 90 x 83mm
+   * 상단 QR 34mm + NO. / 하단: 핵심어(크게)+수량 한 줄, 인보이스 한 줄
+   * 각 값 박스의 글자 크기는 박스를 꽉 채우도록 계산 */
   function labelHtml(label, total) {
     var text = payload(label, total);
     var w = String(total).length < 2 ? 2 : String(total).length;
+    var key = keyword(label.desc);
+    var qtyText = fmtQty(label.qty);
+    var invText = st.invoiceNo || '—';
+
+    // 핵심어 박스: 폭 약 50mm × 높이 약 30mm (남은 세로 공간)
+    var keyF = fitFont(key, 48, 28, false);
+    // 수량 박스: 폭 30mm × 높이 30mm, 한 줄
+    var qtyF = fitFont(qtyText, 30, 26, true);
+    // 인보이스 박스: 폭 86mm × 높이 11mm, 한 줄
+    var invF = fitFont(invText, 84, 10, true);
+
     return '<div class="label">' +
-      '<div class="qrcol">' +
+      '<div class="top">' +
         '<div class="qr">' + qrSvg(text) + '</div>' +
         '<div class="serial">' +
           '<div class="cap">NO.</div>' +
@@ -177,26 +196,19 @@
             '<span class="of"> / ' + pad(total, w) + '</span></div>' +
         '</div>' +
       '</div>' +
-      '<div class="fields">' +
-        '<div class="f desc">' +
-          '<div class="k">Description of Goods</div>' +
-          '<div class="v" style="font-size:' + descFontSize(label.desc) + 'px">' +
-            esc(label.desc || '—') + '</div>' +
+      '<div class="body">' +
+        '<div class="krow">' +
+          '<div class="hl key" style="font-size:' + keyF + 'px">' + esc(key || '—') + '</div>' +
+          '<div class="hl qty" style="font-size:' + qtyF + 'px">' + esc(qtyText) + '</div>' +
         '</div>' +
-        '<div class="f">' +
-          '<div class="k">INVOICE NO.</div>' +
-          '<div class="v">' + esc(st.invoiceNo || '—') + '</div>' +
-        '</div>' +
-        '<div class="f">' +
-          '<div class="k">DATE</div>' +
-          '<div class="v">' + esc(st.dateText || '—') + '</div>' +
-        '</div>' +
-        '<div class="f">' +
-          '<div class="k">Quantity</div>' +
-          '<div class="v">' + fmtQty(label.qty) + '</div>' +
-        '</div>' +
+        '<div class="hl inv" style="font-size:' + invF + 'px">' + esc(invText) + '</div>' +
       '</div>' +
     '</div>';
+  }
+
+  /* 빈 라벨(마지막 페이지의 남는 칸을 스티커 테두리에 맞춰 채움) */
+  function blankLabelHtml() {
+    return '<div class="label blank"><div class="top"></div><div class="body"></div></div>';
   }
 
   /* ---- 미리보기 ---- */
@@ -222,13 +234,23 @@
     }
 
     var count = r.to - r.from + 1;
+    var pages = Math.ceil(count / 6);
     $('#cnt').innerHTML = '<b>' + count + '</b>장 인쇄 · 번호 <b>' + r.from +
-      '</b> ~ <b>' + r.to + '</b> / 전체 <b>' + r.n + '</b>장 · A4 <b>' +
-      Math.ceil(count / 2) + '</b>장';
+      '</b> ~ <b>' + r.to + '</b> / 전체 <b>' + r.n + '</b>장 · ' +
+      'A4 <b>' + pages + '</b>장 (한 장에 6개)';
 
+    // 6개 단위로 페이지(sheet)를 나누고, 각 페이지의 남는 칸은 빈 라벨로 채움
     var html = '';
-    for (var i = r.from - 1; i <= r.to - 1; i++) html += labelHtml(st.labels[i], r.n);
-    root.innerHTML = '<div class="sheet"><div class="labels">' + html + '</div></div>';
+    var idx = r.from - 1;
+    for (var p = 0; p < pages; p++) {
+      html += '<div class="sheet"><div class="labels">';
+      for (var k = 0; k < 6; k++) {
+        if (idx <= r.to - 1) { html += labelHtml(st.labels[idx], r.n); idx++; }
+        else { html += blankLabelHtml(); }
+      }
+      html += '</div></div>';
+    }
+    root.innerHTML = html;
   }
 
   /* ---- 엑셀 읽기 ---- */

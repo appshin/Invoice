@@ -156,70 +156,71 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
 .preview-head .spacer { flex: 1; }
 
 .sheet {
-  background: #fff; padding: 10mm; margin: 0 auto; max-width: 210mm;
+  background: #fff; margin: 0 auto 16px;
+  width: 210mm; min-height: 297mm; padding: 0;
   box-shadow: 0 6px 26px rgba(16,21,27,.16);
 }
-.labels { display: grid; gap: 4mm; }
-.labels.c1 { grid-template-columns: 1fr; }
-.labels.c2 { grid-template-columns: repeat(2, 1fr); }
+/* ===== 스티커 라벨: A4에 100 x 93mm 6개 (2열 x 3행) ===== *
+ * 스티커 용지 위치 보정을 위해 시트 여백/라벨 크기를 CSS 변수로 뺌.        */
+:root {
+  --label-w: 100mm;
+  --label-h: 93mm;
+  --sheet-mt: 9mm;   /* 시트 상단 여백 */
+  --sheet-ml: 5mm;   /* 시트 좌측 여백 */
+}
 
-/* ---- 라벨: 좌 QR / 우 품명·인보이스·날짜·수량 (육안 식별용) ---- */
-.labels { display: grid; grid-template-columns: 1fr; gap: 4mm; }
+.labels {
+  display: grid;
+  grid-template-columns: repeat(2, var(--label-w));
+  grid-auto-rows: var(--label-h);
+  gap: 0;
+  justify-content: start;
+  padding: var(--sheet-mt) 0 0 var(--sheet-ml);
+}
 
 .label {
-  border: 2px solid var(--rule); background: #fff;
-  height: 136mm; padding: 7mm;
-  display: flex; align-items: stretch; gap: 7mm;
+  width: var(--label-w); height: var(--label-h);
+  border: 1px solid var(--rule); background: #fff;
+  padding: 5mm;
+  display: flex; flex-direction: column; gap: 3mm;
   break-inside: avoid; page-break-inside: avoid;
+  overflow: hidden;
 }
 
-/* 왼쪽: QR + 일련번호 */
-.label .qrcol {
-  flex: none; width: 70mm;
-  display: flex; flex-direction: column; align-items: center;
-}
-.label .qr { border: 1px solid var(--rule); line-height: 0; }
-.label .qr svg { display: block; shape-rendering: crispEdges; width: 70mm; height: 70mm; }
-.label .serial { margin-top: auto; padding-top: 5mm; text-align: center; }
+/* 상단: QR(좌) + NO.(우) */
+.label .top { display: flex; gap: 4mm; align-items: flex-start; }
+.label .qr { flex: none; border: 1px solid var(--rule); line-height: 0; }
+.label .qr svg { display: block; shape-rendering: crispEdges; width: 34mm; height: 34mm; }
+.label .serial { margin-left: auto; text-align: right; padding-top: 1mm; }
 .label .serial .cap {
-  font-size: 11px; color: var(--muted); letter-spacing: .16em; margin-bottom: 2px;
+  font-size: 9px; color: var(--muted); letter-spacing: .16em;
 }
 .label .serial .num {
-  font-family: var(--mono); font-weight: 700; font-size: 40px; line-height: 1;
+  font-family: var(--mono); font-weight: 700; font-size: 30px; line-height: 1;
   letter-spacing: -.03em; color: var(--ink);
 }
-.label .serial .num .of { color: var(--muted); font-weight: 500; font-size: 22px; }
+.label .serial .num .of { color: var(--muted); font-weight: 500; font-size: 16px; }
 
-/* 오른쪽: 필드 */
-.label .fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4mm; }
-.label .f { display: flex; flex-direction: column; }
-.label .f .k {
-  font-size: 13px; font-weight: 500; color: var(--ink);
-  height: 6mm; line-height: 6mm; flex: none;
-}
-/* 원본 인보이스와 동일하게 값에 노란 하이라이트 */
-.label .f .v {
-  background: var(--yellow); border: 1px solid var(--rule);
-  font-family: var(--mono); font-weight: 700; color: var(--ink);
-  font-size: 21px; height: 12mm; flex: none; padding: 0 9px;
+/* 하단: 핵심어(크게) + 수량 + 인보이스 */
+.label .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2.5mm; }
+.label .krow { display: flex; gap: 3mm; align-items: stretch; flex: 1; min-height: 0; }
+.label .hl {
+  background: var(--yellow); color: var(--ink);
+  font-family: var(--mono); font-weight: 700;
   display: flex; align-items: center; justify-content: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 1mm 3mm; line-height: 1.1; overflow: hidden;
+  white-space: nowrap;
 }
-/* 품명: 남은 공간(=50mm)을 전부 차지, 글자 크기는 JS가 꽉 차게 계산,
-   가로·세로 중앙 정렬로 멀리서도 잘 보이게 */
-.label .f.desc { flex: 1; min-height: 0; }
-.label .f.desc .v {
-  flex: 1; height: auto; padding: 2mm 3mm;
-  white-space: normal; text-align: center;
-  align-items: center; justify-content: center;
-  line-height: 1.18; overflow: hidden;
-  word-break: break-all;      /* 계산과 동일하게: 어디서든 끊어 글자를 최대한 키움 */
-  overflow-wrap: anywhere;
-}
-.label .txt {
-  font-family: var(--mono); font-size: 8px; color: var(--muted);
-  word-break: break-all; line-height: 1.35;
-}
+/* 핵심어: 남은 세로 공간을 크게 차지 (글자 크기는 JS가 계산) */
+.label .key { flex: 1; min-width: 0; font-size: 40px; }
+/* 수량: 오른쪽 고정폭 */
+.label .qty { flex: none; width: 34mm; font-size: 24px; }
+/* 인보이스: 아래 한 줄 전체 */
+.label .inv { flex: none; height: 13mm; font-size: 22px; }
+
+/* 빈 라벨(마지막 페이지 남는 칸) */
+.label.blank { border: 1px dashed var(--line-2); }
+.label.blank .top, .label.blank .body { visibility: hidden; }
 
 /* 빈 상태 */
 .empty {
@@ -248,17 +249,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ============================ 인쇄 ============================ */
-@page { size: A4 portrait; margin: 8mm; }
+/* 스티커 용지는 라벨 위치가 정확해야 하므로 페이지 여백 0, 위치는 시트 padding으로 */
+@page { size: A4 portrait; margin: 0; }
 @media print {
   html, body { background: #fff; }
   .topbar, .panel, .preview-head, .toast { display: none !important; }
   .layout { display: block; }
   .preview { padding: 0; overflow: visible; }
-  .sheet { box-shadow: none; padding: 0; max-width: none; }
-  .labels { gap: 3mm; }
-  /* 노란 하이라이트는 배경색 → 인쇄 옵션과 무관하게 나오도록 강제.
-     혹시 꺼지더라도 검은 글자/괘선은 그대로라 육안 식별에는 지장 없음 */
-  .label .f .v {
+  .sheet { box-shadow: none; padding: 0; margin: 0; width: 210mm; page-break-after: always; break-after: page; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .labels { gap: 0; }
+  /* 노란 하이라이트는 배경색 → 인쇄 옵션과 무관하게 나오도록 강제 */
+  .label .hl {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 }

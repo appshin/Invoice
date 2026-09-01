@@ -70,11 +70,22 @@
   var FONT_MIN = 8, FONT_MAX = 240;
   var fitCache = {};
 
-  /* 품명에서 괄호 안 값만 추출: "…PIPE(TIAGO)_size…" → "TIAGO"
-     괄호가 없으면 품명 전체를 그대로 사용 */
+  /* 품명에서 핵심어만 추출: 앞 번호, 공통어(COLD DRAWN PIPE 등),
+     SIZE/치수 꼬리를 제거하고 남긴다. 전체를 감싼 괄호는 벗긴다.
+       "1. COLD DRAWN PIPE(TIAGO)_size: 27.4…"  → "TIAGO"
+       "1. VW MQB27 YOKE SHAFT-SP (LHD)"        → "VW MQB27 YOKE SHAFT-SP (LHD)"
+       "1. COLD DRAWN PIPE B216"                → "B216"                     */
   function keyword(desc) {
-    var m = /[(（]([^)）]+)[)）]/.exec(String(desc || ''));
-    return m ? m[1].trim() : String(desc || '').trim();
+    var s = String(desc || '').trim();
+    s = s.replace(/^\s*\d+\s*[.)]\s*/, '');                 // 앞 번호 "1. "
+    s = s.replace(/_?\(?\s*SIZE\s*:.*$/i, ' ');             // SIZE: 이하 (괄호 포함) 제거
+    s = s.replace(/\b(COLD\s+DRAWN\s+PIPE|COLD\s+DRAWN|PIPE)\b/gi, ' '); // 공통 수식어
+    s = s.replace(/\b[\d.]+\s*x\s*[\d.x\s]+\b/gi, ' ');     // 치수 28.4x18.8x4.8
+    s = s.replace(/[_]+/g, ' ').replace(/\s{2,}/g, ' ')
+         .replace(/^[\s:.\-]+|[\s:.\-]+$/g, '').trim();
+    var m = /^[(（]([^()（）]+)[)）]$/.exec(s);              // 전체를 감싼 괄호만 벗김
+    if (m) s = m[1].trim();
+    return s || String(desc || '').trim();
   }
 
   /* break-all 기준 줄 수 계산 */

@@ -97,21 +97,33 @@
   function extractItems(grid) {
     var res = { items: [], headerRow: -1, descCol: 0, qtyCol: -1, groups: [], note: '' };
 
-    /* 1) 'unit a pallet' 열 위치 → 그룹(ONE / PARTIAL / PARTIAL) 정의 */
+    /* 1) 파렛트 그룹 헤더 찾기.
+       두 가지 서식을 모두 지원:
+         (a) 'unit a pallet' + 'No. of pallet'
+         (b) "Q'ty/pallet"   + 'No. of pallet' / 'No of pallet'
+       각 그룹 = {단위수량 열, 파렛트수 열}. one/partial pallet 여러 개 가능. */
     var hRow = -1, groups = [];
+    function isUnitHdr(v) {
+      var n = norm(v);
+      return n === 'unitapallet' || n === 'qtypallet';   // "Q'ty/pallet" → qtypallet
+    }
+    function isCountHdr(v) {
+      var n = norm(v);
+      return n.indexOf('noofpallet') === 0 || n === 'noofpallet' || n.indexOf('nofpallet') === 0;
+    }
     for (var r = 0; r < Math.min(grid.length, 40) && hRow === -1; r++) {
       var row = grid[r] || [], found = [];
       for (var c = 0; c < row.length; c++) {
-        if (norm(row[c]) !== 'unitapallet') continue;
+        if (!isUnitHdr(row[c])) continue;
         var cntCol = -1;
-        for (var k = c + 1; k < Math.min(row.length, c + 4); k++) {
-          if (norm(row[k]).indexOf('nofpallet') === 0 || norm(row[k]) === 'noofpallet') { cntCol = k; break; }
+        for (var k = c + 1; k < Math.min(row.length, c + 5); k++) {
+          if (isCountHdr(row[k])) { cntCol = k; break; }
         }
         found.push({ unitCol: c, countCol: cntCol === -1 ? c + 1 : cntCol });
       }
       if (found.length) { hRow = r; groups = found; }
     }
-    if (hRow === -1) { res.note = '파렛트 구성(unit a pallet) 헤더를 찾지 못했습니다.'; return res; }
+    if (hRow === -1) { res.note = '파렛트 구성 헤더(unit a pallet / Q\'ty/pallet)를 찾지 못했습니다.'; return res; }
 
     /* 2) Description of Goods / Quantity 열 */
     var descCol = 0, qtyCol = -1;
@@ -171,11 +183,19 @@
 
   /* 통합 추출 */
   function extract(XLSX, wb) {
+    // packing list 계열 시트 우선 (오타 'pcking list' 등도 근사 매칭)
+    function packRank(name) {
+      var n = norm(name);
+      if (n.indexOf('packinglist') === 0) return 0;
+      if (n.indexOf('pckinglist') === 0 || n.indexOf('packing') === 0 ||
+          n.indexOf('pcking') === 0) return 1;      // 오타/약칭
+      return 2;
+    }
     var names = wb.SheetNames.slice().sort(function (a, b) {
-      return (norm(a).indexOf('packinglist') === 0 ? 0 : 1) -
-             (norm(b).indexOf('packinglist') === 0 ? 0 : 1);
+      return packRank(a) - packRank(b);
     });
-    var best = null;
+
+    var best = null, headerOnly = null;
     for (var i = 0; i < names.length; i++) {
       var ws = wb.Sheets[names[i]];
       var grid = toGrid(XLSX, ws);
@@ -187,10 +207,22 @@
         source: h.source, sheet: names[i],
         items: it.items, itemNote: it.note
       };
-      if (h.invoiceNo || it.items.length) return r;
+      // 품목이 실제로 잡힌 시트를 최우선으로 채택
+      if (it.items.length) {
+        // 인보이스 번호가 이 시트엔 없고 다른 시트에 있으면 채워줌
+        if (!r.invoiceNo) {
+          for (var j = 0; j < names.length; j++) {
+            var h2 = extractHeader(toGrid(XLSX, wb.Sheets[names[j]]), wb.Sheets[names[j]]);
+            if (h2.invoiceNo) { r.invoiceNo = h2.invoiceNo; r.date = h2.date;
+                                r.dateText = h2.dateText; r.source = h2.source; break; }
+          }
+        }
+        return r;
+      }
+      if (h.invoiceNo && !headerOnly) headerOnly = r;   // 품목 없지만 인보이스는 있음
       if (!best) best = r;
     }
-    return best || { invoiceNo: '', date: null, dateText: '', source: '',
+    return headerOnly || best || { invoiceNo: '', date: null, dateText: '', source: '',
                      sheet: '', items: [], itemNote: '' };
   }
 

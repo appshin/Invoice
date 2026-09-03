@@ -153,8 +153,12 @@
       }
       if (!gs.length) continue;                              // 이번 선적 대상 아님
 
-      var sum = gs.reduce(function (a, g) { return a + g.unit * g.count; }, 0);
       var qty = qtyCol >= 0 ? num(row3[qtyCol]) : 0;
+      // 수량 열이 있는데 이 품목의 수량이 0이면 이번 선적 대상이 아님.
+      // (파렛트 칸에 이전 선적의 옛 값이 남아 있어도 잘못 잡지 않도록)
+      if (qtyCol >= 0 && qty <= 0) continue;
+
+      var sum = gs.reduce(function (a, g) { return a + g.unit * g.count; }, 0);
 
       res.items.push({
         desc: String(desc).trim(),

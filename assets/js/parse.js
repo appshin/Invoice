@@ -97,19 +97,20 @@
   function extractItems(grid) {
     var res = { items: [], headerRow: -1, descCol: 0, qtyCol: -1, groups: [], note: '' };
 
-    /* 1) 파렛트 그룹 헤더 찾기.
-       두 가지 서식을 모두 지원:
-         (a) 'unit a pallet' + 'No. of pallet'
-         (b) "Q'ty/pallet"   + 'No. of pallet' / 'No of pallet'
-       각 그룹 = {단위수량 열, 파렛트수 열}. one/partial pallet 여러 개 가능. */
+    /* 1) 파렛트 그룹 헤더 찾기. 여러 서식을 모두 지원:
+         단위수량 열: 'unit a pallet' / "Q'ty/pallet" / "Q'ty per pallet"
+         파렛트수 열: 'No. of pallet' / 'No of pallet' / 'number of pallet'
+       각 그룹 = {단위수량 열, 파렛트수 열}. one/full/partial 여러 개 가능. */
     var hRow = -1, groups = [];
     function isUnitHdr(v) {
       var n = norm(v);
-      return n === 'unitapallet' || n === 'qtypallet';   // "Q'ty/pallet" → qtypallet
+      // qtypallet(=Q'ty/pallet), qtyperpallet(=Q'ty per pallet), unitapallet
+      return n === 'unitapallet' || n === 'qtypallet' || n === 'qtyperpallet';
     }
     function isCountHdr(v) {
       var n = norm(v);
-      return n.indexOf('noofpallet') === 0 || n === 'noofpallet' || n.indexOf('nofpallet') === 0;
+      return n.indexOf('noofpallet') === 0 || n === 'noofpallet' ||
+             n.indexOf('nofpallet') === 0 || n.indexOf('numberofpallet') === 0;
     }
     for (var r = 0; r < Math.min(grid.length, 40) && hRow === -1; r++) {
       var row = grid[r] || [], found = [];
@@ -182,6 +183,24 @@
   }
 
   /* 통합 추출 */
+  /* 인보이스 번호/날짜의 정본 선택:
+     'invoice' 시트(있으면)를 최우선 → 없으면 인보이스 번호가 있는 첫 시트.
+     'housing INVOICE'처럼 접두어가 붙어도 매칭. 'packing'은 제외(미갱신 값 회피). */
+  function pickInvoiceHeader(XLSX, wb, names) {
+    var invSheets = [], other = [];
+    for (var i = 0; i < names.length; i++) {
+      var n = norm(names[i]);
+      if (n.indexOf('invoice') !== -1 && n.indexOf('packing') === -1) invSheets.push(names[i]);
+      else other.push(names[i]);
+    }
+    var ordered = invSheets.concat(other);
+    for (var k = 0; k < ordered.length; k++) {
+      var h = extractHeader(toGrid(XLSX, wb.Sheets[ordered[k]]), wb.Sheets[ordered[k]]);
+      if (h.invoiceNo) return h;
+    }
+    return null;
+  }
+
   function extract(XLSX, wb) {
     // packing list 계열 시트 우선 (오타 'pcking list' 등도 근사 매칭)
     function packRank(name) {
@@ -209,8 +228,14 @@
       };
       // 품목이 실제로 잡힌 시트를 최우선으로 채택
       if (it.items.length) {
-        // 인보이스 번호가 이 시트엔 없고 다른 시트에 있으면 채워줌
-        if (!r.invoiceNo) {
+        // 인보이스 번호/날짜는 'INVOICE' 시트를 정본으로 우선 사용.
+        // (패킹리스트에 옛 번호가 안 지워지고 남는 실수가 있어도 정확히 잡음)
+        var inv = pickInvoiceHeader(XLSX, wb, names);
+        if (inv && inv.invoiceNo) {
+          r.invoiceNo = inv.invoiceNo; r.date = inv.date;
+          r.dateText = inv.dateText; r.source = inv.source;
+        } else if (!r.invoiceNo) {
+          // INVOICE 시트가 없으면 다른 시트에서라도 채움
           for (var j = 0; j < names.length; j++) {
             var h2 = extractHeader(toGrid(XLSX, wb.Sheets[names[j]]), wb.Sheets[names[j]]);
             if (h2.invoiceNo) { r.invoiceNo = h2.invoiceNo; r.date = h2.date;
